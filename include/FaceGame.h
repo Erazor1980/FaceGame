@@ -10,7 +10,6 @@ struct CascadeParams
     cv::Size minSize = cv::Size( 80, 80 );
     cv::Size maxSize = cv::Size( 250, 250 );
 };
-
 struct Options
 {
     // display options
@@ -27,12 +26,77 @@ struct Options
     // game options
     int sizePlayer = 40;        // size of player image in game window (radius*2 and width/height respectively)
 };
-
 struct FaceDetectionResults
 {
     cv::Rect face;
     std::vector< cv::Rect > vEyes;
     bool bFaceDetSuccessfull;       // if false, face position was calculated based on last position and eye detection!
+};
+struct PlayerInfo
+{
+public:
+    PlayerInfo()
+    {
+        bb = cv::Rect( 0, 0, 10, 10 );
+        img.create( 10, 10, CV_8UC3 );
+    }
+    PlayerInfo( const cv::Size size )
+    {
+        bb.width    = size.width;
+        bb.height   = size.height;
+
+        img.create( size, CV_8UC3 );
+        img.setTo( 0 );
+    }
+    void addImg( const cv::Mat& newImg )
+    {
+        cv::resize( newImg, img, img.size() );
+        drawLifeBar();
+    }
+    void adjustBB( const cv::Point& newCenter )
+    {
+        bb.x = newCenter.x - img.cols / 2;
+        bb.y = newCenter.y - img.rows / 2;
+    }
+
+    //TODO hier weitermachen! bis jetzt nur ganz einfach
+    void update( bool aua )
+    {
+        if( aua )
+        {
+            life -= maxLife / 5;
+            life = MAX( 0, life );
+        }
+        else
+        {
+            life += maxLife / 5;
+            life = MIN( life, maxLife );
+        }
+        drawLifeBar();
+    }
+
+    cv::Rect getBB() const
+    {
+        return bb;
+    }
+    cv::Mat getImg() const
+    {
+        return img;
+    }
+private:
+    void drawLifeBar()
+    {
+        double perc = (double)life / maxLife;
+        int px = (int)( perc * img.cols );  /* length of green bar */
+        cv::line( img, cv::Point( px, 0 ), cv::Point( img.cols - 1, 0 ), RED, 3 );
+        if( px  )
+            cv::line( img, cv::Point( 0, 0 ), cv::Point( px, 0 ), GREEN, 3 );
+    }
+    cv::Rect bb;    /* bounding box */
+    cv::Mat img;
+
+    int maxLife = 100;
+    int life    = 100;
 };
 
 class FaceGame
@@ -63,6 +127,9 @@ private:
     // current coordinates of the detected face (center)
     cv::Point               m_facePos = cv::Point( 0, 0 );
 
+    // player info
+    PlayerInfo              m_playerInfo;
+
     bool                    m_bEndGame = false;
     bool                    m_bInitialized = false;
 
@@ -76,7 +143,7 @@ private:
     // openCV params
     cv::Mat                 m_img;          /* camera live image with additional infos */
     cv::Mat                 m_gameImg;      /* game image */
-    cv::Mat                 m_playerImg;    /* player image */
+    //cv::Mat                 m_playerImg;    /* player image */
 
     std::string             m_wndName = "Infos";
     std::string             m_wndGameName = "F A C E    G A M E";

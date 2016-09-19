@@ -2,7 +2,7 @@
 #include "defines.h"
 
 #define ENEMY_SIZE      (30)    //TODO if needed, make parameter
-#define NUMBER_ENEMIES  (3)     //TODO if needed, make parameter
+#define NUMBER_ENEMIES  (10)     //TODO if needed, make parameter
 #define MAX_SPEED       (10)     // max speed of an enemy in px diff
 
 class Enemy

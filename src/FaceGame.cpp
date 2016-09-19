@@ -75,10 +75,9 @@ FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
         m_gameImg.create( m_img.size(), CV_8UC3 );
         m_gameImg.setTo( 0 );
 
-        // create player image
-        m_playerImg.create( m_options.sizePlayer, m_options.sizePlayer, CV_8UC3 );
-        m_playerImg.setTo( 0 );
-
+        // create player
+        m_playerInfo = PlayerInfo( cv::Size( m_options.sizePlayer, m_options.sizePlayer ) );
+        
         // add enemies
         createEnemies();
     }
@@ -124,10 +123,10 @@ void FaceGame::update()
                 // collision test with player bb
                 if( m_bPayerFaceSet )
                 {
-                    cv::Point diff( m_options.sizePlayer, m_options.sizePlayer );   // to easier get top left and bottom right pos of player BB
-                    if( it->collisionTest( cv::Rect( m_facePos - diff, m_facePos + diff ) ) )
+                    if( it->collisionTest( m_playerInfo.getBB() ) )
                     {
                         it = m_vEnemies.erase( it );
+                        m_playerInfo.update( true );
                     }
                     else
                         it++;
@@ -254,10 +253,10 @@ void FaceGame::display()
         if( m_bPayerFaceSet )
         {
             //TODO maybe copy the face from the player, or what ever... this is not nice yet
-            cv::Rect playerBB( m_facePos - cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ),
-                               m_facePos + cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ) );
+            //cv::Rect playerBB( m_facePos - cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ),
+            //                   m_facePos + cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ) );
 
-            m_playerImg.copyTo( m_gameImg( playerBB ) );
+            m_playerInfo.getImg().copyTo( m_gameImg( m_playerInfo.getBB() ) );
             //cv::rectangle( m_gameImg, player, BLUE, -1 );
             //cv::circle( m_gameImg, m_facePos, m_options.sizePlayer, BLUE, -1 );
         }
@@ -390,7 +389,8 @@ void FaceGame::processResults()
             else
             {
                 m_facePos = center;
-                cv::resize( m_img( currBB ), m_playerImg, m_playerImg.size() );
+                m_playerInfo.adjustBB( m_facePos );
+                m_playerInfo.addImg( m_img( currBB ) );
             }
         }
     }
@@ -427,6 +427,7 @@ void FaceGame::createEnemies()
     m_vEnemies.clear();
 
     cv::Mat enemy = cv::imread( "D:/Projects/_images_/bvb.png", 1 );
+    enemy.setTo( 255 );
 
     for( int i = 0; i < NUMBER_ENEMIES; ++i )
     {
@@ -470,7 +471,9 @@ void FaceGame::keyHandling()
             int x = curr.x + curr.width / 2;
             int y = curr.y + curr.height / 2;
             m_facePos = cv::Point( x, y );
-            cv::resize( m_img( cv::Rect( curr.x, curr.y, curr.width, curr.height ) ), m_playerImg, m_playerImg.size() );
+
+            m_playerInfo.adjustBB( m_facePos );
+            m_playerInfo.addImg( m_img( cv::Rect( curr.x, curr.y, curr.width, curr.height ) ) );
             
             printf( "\nFace coordinates successfully saved at %d, %d.\n", x, y );
             m_bPayerFaceSet = true;
