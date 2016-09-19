@@ -76,14 +76,7 @@ FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
         m_gameImg.setTo( 0 );
 
         // add enemies
-        cv::Mat enemy = cv::imread( "D:/Projects/_images_/bvb.png", 1 );
-
-        for( int i = 0; i < NUMBER_ENEMIES; ++i )
-        {
-            Enemy newEnemy( enemy, &m_gameImg );
-            m_vEnemies.push_back( newEnemy );
-        }
-        int deb = 0;
+        createEnemies();
     }
     else
     {
@@ -91,10 +84,6 @@ FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
     }
     printf( "#                                     #\n" );
     printf( "#######################################\n" );
-
-
-    /*m_testDrawImg.create( m_img.size(), CV_8UC3 );
-    m_testDrawImg.setTo( 0 );*/
 }
 
 FaceGame::~FaceGame()
@@ -123,16 +112,37 @@ void FaceGame::update()
         // process detection results
         processResults();
 
+        // update enemies
+        {
+            auto it = m_vEnemies.begin();
+            while( it != m_vEnemies.end() )
+            {
+                // collision test with player bb
+                if( m_bPayerFaceSet )
+                {
+                    cv::Point diff( m_options.sizePlayer, m_options.sizePlayer );   // to easier get top left and bottom right pos of player BB
+                    if( it->collisionTest( cv::Rect( m_facePos - diff, m_facePos + diff ) ) )
+                    {
+                        it = m_vEnemies.erase( it );
+                    }
+                    else
+                        it++;
+                }
+                else
+                    it++;
+            }
+            for( int i = 0; i < m_vEnemies.size(); ++i )
+            {
+                m_vEnemies[ i ].update();
+            }
+        }
+
         // display image
         display();
     }
 
     // key handling
     keyHandling();
-
-
-    //TODO test
-    //drawWithNose();
 }
 
 void FaceGame::display()
@@ -160,13 +170,6 @@ void FaceGame::display()
         for( int i = 0; i < m_vFaceDetResults.size(); ++i )
         {
             cv::Mat faceImg = m_img( m_vFaceDetResults[ i ].face );
-#if 0
-            cv::Mat tmpImg;
-            cv::cvtColor( faceImg, tmpImg, CV_BGR2GRAY );
-                        // The algorithm normalizes the brightness and increases the contrast of the image.
-            cv::equalizeHist( tmpImg, tmpImg );
-            cv::cvtColor( tmpImg, faceImg, CV_GRAY2BGR );
-#endif
             faceImg.copyTo( allFaces( cv::Rect( diffX, 0, faceImg.cols, faceImg.rows ) ) );
             diffX += faceImg.cols;
         }
@@ -215,7 +218,7 @@ void FaceGame::display()
             }
         }
 
-        // SHOW CURRENT PLAYER POSITION
+        // show current player position
         if( m_bPayerFaceSet )
         {
             cv::circle( m_img, m_facePos, 40, WHITE, 2 );
@@ -241,12 +244,17 @@ void FaceGame::display()
         // ENEMIES
         for( int i = 0; i < m_vEnemies.size(); ++i )
         {
-            m_vEnemies[ i ].update();
+            m_vEnemies[ i ].display();
         }
 
         if( m_bPayerFaceSet )
         {
-            cv::circle( m_gameImg, m_facePos, 20, BLUE, -1 );
+            //TODO maybe copy the face from the player, or what ever... this is not nice yet
+            cv::Rect player( m_facePos - cv::Point( m_options.sizePlayer, m_options.sizePlayer ),
+                             m_facePos + cv::Point( m_options.sizePlayer, m_options.sizePlayer ) );
+
+            cv::rectangle( m_gameImg, player, BLUE, -1 );
+            //cv::circle( m_gameImg, m_facePos, m_options.sizePlayer, BLUE, -1 );
         }
     }
     
@@ -376,7 +384,6 @@ void FaceGame::processResults()
             }
             else
             {
-                //lastPoint = m_facePos;
                 m_facePos = center;
             }
         }
@@ -409,6 +416,19 @@ void FaceGame::adjustBoundaries()
     }
 }
 
+void FaceGame::createEnemies()
+{
+    m_vEnemies.clear();
+
+    cv::Mat enemy = cv::imread( "D:/Projects/_images_/bvb.png", 1 );
+
+    for( int i = 0; i < NUMBER_ENEMIES; ++i )
+    {
+        Enemy newEnemy( enemy, &m_gameImg, ENEMY_SIZE );
+        m_vEnemies.push_back( newEnemy );
+    }
+}
+
 void FaceGame::showDebugInfos()
 {
     int fontFace = cv::FONT_HERSHEY_PLAIN;
@@ -427,24 +447,6 @@ void FaceGame::showDebugInfos()
     sprintf_s( text, "maxPxDiff: %d", m_options.maxPixDiff ); y+= yDiff;
     cv::putText( m_img, text, cv::Point( x, y ), fontFace, fontScale, GREEN, fontThickness );
 }
-
-//void FaceGame::drawWithNose()
-//{
-//    if( !m_bPayerFaceSet )
-//    {
-//        return;
-//    }
-//
-//    cv::circle( m_testDrawImg, m_facePos, 2, RED, -1 );
-//
-//    if( lastPoint != m_facePos && lastPoint != cv::Point( 0, 0 ) )
-//    {
-//        cv::line( m_testDrawImg, lastPoint, m_facePos, RED, 2 );
-//    }
-//
-//    cv::imshow( "JULIA MALT!!!!!", m_testDrawImg );
-//    
-//}
 
 void FaceGame::keyHandling()
 {
@@ -510,9 +512,9 @@ void FaceGame::keyHandling()
         m_options.maxPixDiff -= 10;
         m_options.maxPixDiff = MAX( 0, m_options.maxPixDiff );
     }
-    /*else if( ' ' == key )
+    else if( ' ' == key )
     {
-        m_testDrawImg.setTo( 0 );
-    }*/
+        createEnemies();
+    }
 
 }

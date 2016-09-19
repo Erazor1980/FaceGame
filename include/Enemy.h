@@ -8,9 +8,12 @@
 class Enemy
 {
 public:
-    Enemy( const cv::Mat img, cv::Mat* const gameImg );
+    Enemy( const cv::Mat img, cv::Mat* const gameImg, const int size = ENEMY_SIZE );
 
     void update();
+    void display();
+
+    bool collisionTest( const cv::Rect otherBB );
 private:
     cv::Point   m_pos;      // top left pixel position in gameImg
 

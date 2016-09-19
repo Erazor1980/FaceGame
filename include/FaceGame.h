@@ -13,14 +13,19 @@ struct CascadeParams
 
 struct Options
 {
+    // display options
     bool showInfoWnd = true;
     bool showFace = true;
     bool showEyes = false;    
     bool showFaceWnd = false;
     bool showDebugInfos = false;
 
-    int maxPixDiff = 150;            // maximal number of pixel (in x and y direction) between 2 frames from player center
-    int minPixDiff = 7;             // minimal movement of face center to change its position
+    // face detection options
+    int maxPixDiff = 150;       // maximal number of pixel (in x and y direction) between 2 frames from player center
+    int minPixDiff = 7;         // minimal movement of face center to change its position
+
+    // game options
+    int sizePlayer = 20;        // size of player image in game window (radius and width/2 respectively)
 };
 
 struct FaceDetectionResults
@@ -47,7 +52,7 @@ private:
     void detectFace();
     void processResults();
     void adjustBoundaries();    // after detectFace or processResults some Rects can partially lie outside the image
-
+    void createEnemies();
 
     void showDebugInfos();
 
@@ -64,11 +69,6 @@ private:
     bool                    m_bPayerFaceSet = false;
 
     Options                 m_options;
-
-    //TODO test! später weg!
-    //cv::Mat                 m_testDrawImg;
-    //cv::Point lastPoint;
-    //void drawWithNose();
 
     // enemies
     std::vector< Enemy >    m_vEnemies;
