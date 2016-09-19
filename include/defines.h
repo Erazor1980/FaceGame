@@ -1,9 +1,16 @@
 #pragma once
-//#include <windows.h>
+
+#include <opencv2/opencv.hpp>
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
-//#include <ctime>
+
+// for timer 
+#include <ctime>
+
+// for playing sounds
+//#include <windows.h>
 //#include <mmsystem.h>
+
 
 #define BLUE	cv::Scalar( 255, 0, 0 )
 #define RED		cv::Scalar( 0, 0, 255 )

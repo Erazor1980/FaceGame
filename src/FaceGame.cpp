@@ -1,25 +1,30 @@
-#include "..\include\FaceGame.h"
+#include "FaceGame.h"
 
 #include "opencv2/imgproc/imgproc.hpp"
 
+// global params
 const int g_camID = 0;
+//std::string g_cascadeFace = "haarcascade_frontalface_alt.xml";
+std::string g_cascadeFace = "haarcascade_frontalface_default.xml";
+
 
 FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
     :
     m_videoCap( g_camID )
 {
+    std::srand( ( unsigned int )std::time( 0 ) );
+
     m_bInitialized = true;
     printf( "#######################################\n" );
     printf( "#         F A C E    G A M E          #\n\ninitializing...\n" );
 
-    std::string cascadeFace = "haarcascade_frontalface_alt.xml";
-    if( m_faceCascade.load( pathToOpenCV_haarcascades + cascadeFace ) )
+    if( m_faceCascade.load( pathToOpenCV_haarcascades + g_cascadeFace ) )
     {
-        printf( "\t-'%s' loaded successfully.\n", cascadeFace.c_str() );
+        printf( "\t-'%s' loaded successfully.\n", g_cascadeFace.c_str() );
     }
     else
     {
-        printf( "\t- Could not load '%s' in '%s'!\n", cascadeFace.c_str(), pathToOpenCV_haarcascades.c_str() );
+        printf( "\t- Could not load '%s' in '%s'!\n", g_cascadeFace.c_str(), pathToOpenCV_haarcascades.c_str() );
         m_bInitialized = false;
     }
 
@@ -60,10 +65,25 @@ FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
         printf( "... done.\n" );
 
         cv::namedWindow( m_wndName, cv::WINDOW_NORMAL );
+        cv::namedWindow( m_wndGameName, cv::WINDOW_NORMAL );
 
         m_eyesParams.minSize        = cv::Size( 10, 10 );
         m_eyesParams.maxSize        = cv::Size( 50, 50 );
         m_eyesParams.minNeighbors   = 2;
+
+        // create game image
+        m_gameImg.create( m_img.size(), CV_8UC3 );
+        m_gameImg.setTo( 0 );
+
+        // add enemies
+        cv::Mat enemy = cv::imread( "D:/Projects/_images_/bvb.png", 1 );
+
+        for( int i = 0; i < NUMBER_ENEMIES; ++i )
+        {
+            Enemy newEnemy( enemy, &m_gameImg );
+            m_vEnemies.push_back( newEnemy );
+        }
+        int deb = 0;
     }
     else
     {
@@ -72,6 +92,9 @@ FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
     printf( "#                                     #\n" );
     printf( "#######################################\n" );
 
+
+    /*m_testDrawImg.create( m_img.size(), CV_8UC3 );
+    m_testDrawImg.setTo( 0 );*/
 }
 
 FaceGame::~FaceGame()
@@ -81,11 +104,24 @@ FaceGame::~FaceGame()
 
 void FaceGame::update()
 {
+    if( !m_bInitialized )
+    {
+        printf( "\nGame not initialized!\n" );
+        m_bEndGame = true;
+        return;
+    }
+
+    if( m_vFaceDetResults.size() )
+        printf( "\rface center at: %d, %d", m_facePos.x, m_facePos.y );
+
     // get next frame
     if( m_videoCap.read( m_img ) )
     {
         // detect face
         detectFace();
+
+        // process detection results
+        processResults();
 
         // display image
         display();
@@ -93,32 +129,15 @@ void FaceGame::update()
 
     // key handling
     keyHandling();
-}
 
-void FaceGame::keyHandling()
-{
-    int key = cv::waitKey( 30 );
 
-    if( 27 == key )     // esc -> end game
-    {
-        m_bEndGame = true;
-    }
-    else if( 'e' == key )
-    {
-        m_options.showEyes = !m_options.showEyes;
-    }
-    else if( 'f' == key )
-    {
-        m_options.showFace = !m_options.showFace;
-    }
-    else if( 'w' == key )
-    {
-        m_options.showFaceWnd = !m_options.showFaceWnd;
-    }
+    //TODO test
+    //drawWithNose();
 }
 
 void FaceGame::display()
 {
+    // FACES IMAGE
     if( !m_options.showFaceWnd )
     {
         cv::destroyWindow( "face" );
@@ -141,51 +160,99 @@ void FaceGame::display()
         for( int i = 0; i < m_vFaceDetResults.size(); ++i )
         {
             cv::Mat faceImg = m_img( m_vFaceDetResults[ i ].face );
+#if 0
+            cv::Mat tmpImg;
+            cv::cvtColor( faceImg, tmpImg, CV_BGR2GRAY );
+                        // The algorithm normalizes the brightness and increases the contrast of the image.
+            cv::equalizeHist( tmpImg, tmpImg );
+            cv::cvtColor( tmpImg, faceImg, CV_GRAY2BGR );
+#endif
             faceImg.copyTo( allFaces( cv::Rect( diffX, 0, faceImg.cols, faceImg.rows ) ) );
             diffX += faceImg.cols;
         }
         cv::imshow( "face", allFaces );
     }
 
-    if( m_options.showEyes || m_options.showFace )
+    ////////////////////////////////////////
+    //////////// INFO WINDOW ///////////////
+    ////////////////////////////////////////
+    // DEBUG DRAWINGS -> faces, eyes, etc
+    if( m_options.showInfoWnd )
     {
-        for( int i = 0; i < m_vFaceDetResults.size(); ++i )
+        if( m_options.showEyes || m_options.showFace )
         {
-            cv::Rect currFace = m_vFaceDetResults[ i ].face;
-            cv::Scalar colorFace;
-            if( m_vFaceDetResults[ i ].bFaceDetSuccessfull )
-                colorFace = GREEN;
-            else
-                colorFace = CYAN;
-
-            cv::Point center( currFace.x + currFace.width / 2, currFace.y + currFace.height / 2 );
-
-            if( m_vFaceDetResults[ i ].vEyes.size() > 0 )
+            for( int i = 0; i < m_vFaceDetResults.size(); ++i )
             {
-                if( m_options.showFace )
-                    cv::ellipse( m_img, center, cv::Size( currFace.width / 2, currFace.height / 2 ), 0, 0, 360, colorFace, 4 );
+                cv::Rect currFace = m_vFaceDetResults[ i ].face;
+                cv::Scalar colorFace;
+                if( m_vFaceDetResults[ i ].bFaceDetSuccessfull )
+                    colorFace = GREEN;
+                else
+                    colorFace = CYAN;
 
-                if( m_options.showEyes )
+                cv::Point center( currFace.x + currFace.width / 2, currFace.y + currFace.height / 2 );
+
+                if( m_vFaceDetResults[ i ].vEyes.size() > 0 )
                 {
-                    for( int j = 0; j < m_vFaceDetResults[ i ].vEyes.size(); ++j )
+                    if( m_options.showFace )
+                        cv::ellipse( m_img, center, cv::Size( currFace.width / 2, currFace.height / 2 ), 0, 0, 360, colorFace, 4 );
+
+                    if( m_options.showEyes )
                     {
-                        cv::Rect eye = m_vFaceDetResults[ i ].vEyes[ j ];
-                        cv::Point centerEye( currFace.x + eye.x + eye.width / 2, currFace.y + eye.y + eye.height / 2 );
-                        cv::ellipse( m_img, centerEye, cv::Size( eye.width / 2, eye.height / 2 ), 0, 0, 360, BLUE, 3 );
+                        for( int j = 0; j < m_vFaceDetResults[ i ].vEyes.size(); ++j )
+                        {
+                            cv::Rect eye = m_vFaceDetResults[ i ].vEyes[ j ];
+                            cv::Point centerEye( currFace.x + eye.x + eye.width / 2, currFace.y + eye.y + eye.height / 2 );
+                            cv::ellipse( m_img, centerEye, cv::Size( eye.width / 2, eye.height / 2 ), 0, 0, 360, BLUE, 3 );
+                        }
                     }
                 }
+                else
+                {
+                    if( m_options.showFace )
+                        cv::ellipse( m_img, center, cv::Size( currFace.width / 2, currFace.height / 2 ), 0, 0, 360, RED, 4 );
+                }
             }
-            else
-            {
-                if( m_options.showFace )
-                    cv::ellipse( m_img, center, cv::Size( currFace.width / 2, currFace.height / 2 ), 0, 0, 360, RED, 4 );
-            }
+        }
+
+        // SHOW CURRENT PLAYER POSITION
+        if( m_bPayerFaceSet )
+        {
+            cv::circle( m_img, m_facePos, 40, WHITE, 2 );
+        }
+
+        if( m_options.showDebugInfos )
+        {
+            showDebugInfos();
+        }
+        cv::imshow( m_wndName, m_img );
+    }
+    else
+    {
+        cv::destroyWindow( m_wndName );
+    }
+
+
+    ////////////////////////////////////////
+    //////////// GAME WINDOW ///////////////
+    ////////////////////////////////////////
+    {
+        m_gameImg.setTo( 0 );
+        // ENEMIES
+        for( int i = 0; i < m_vEnemies.size(); ++i )
+        {
+            m_vEnemies[ i ].update();
+        }
+
+        if( m_bPayerFaceSet )
+        {
+            cv::circle( m_gameImg, m_facePos, 20, BLUE, -1 );
         }
     }
     
 
-    cv::imshow( m_wndName, m_img );
 
+    cv::imshow( m_wndGameName, m_gameImg );
 }
 
 void FaceGame::detectFace()
@@ -233,6 +300,8 @@ void FaceGame::detectFace()
         m_vFaceDetResults.push_back( tmpResults );
     }
 
+    adjustBoundaries();
+
     // no face found, use "eyes" search in the last face area
     if( vTmpFaces.size() == 0 && lastFace.width > 0 )
     {
@@ -243,6 +312,7 @@ void FaceGame::detectFace()
 
         FaceDetectionResults tmpResults;
         tmpResults.bFaceDetSuccessfull = false;
+        
         tmpResults.face = lastFace; // widht and height remain, x and y will be adapted
         cv::Mat face = frame_gray( lastFace );
 
@@ -268,16 +338,181 @@ void FaceGame::detectFace()
         // Use average location of eyes                                                       
         if( tmpResults.vEyes.size() > 0 )
         {
-            centerFace.x = avg_x / tmpResults.vEyes.size();
-            centerFace.y = avg_y / tmpResults.vEyes.size();
+            centerFace.x = avg_x / ( int )tmpResults.vEyes.size();
+            centerFace.y = avg_y / ( int )tmpResults.vEyes.size();
 
             tmpResults.face.x = centerFace.x - lastFace.width / 2;
             tmpResults.face.y = centerFace.y - lastFace.height / 2;
             m_vFaceDetResults.push_back( tmpResults );
         }
+
+        adjustBoundaries();
     }
 }
 
 void FaceGame::processResults()
 {
+    if( !m_bPayerFaceSet )
+    {
+        return;
+    }
+
+    for( int i = 0; i < m_vFaceDetResults.size(); ++i )
+    {
+        cv::Rect currBB = m_vFaceDetResults[ i ].face;
+
+        cv::Point center = cv::Point( currBB.x + currBB.width / 2, currBB.y + currBB.height / 2 );
+
+        const int xDiff = abs( center.x - m_facePos.x );
+        const int yDiff = abs( center.y - m_facePos.y );
+
+        // change center position only, if detected face center moved less than m_options.maxPixDiff
+        if( xDiff < m_options.maxPixDiff && yDiff < m_options.maxPixDiff )
+        {
+            // Check to see if the user moved enough to update position
+            if( xDiff < m_options.minPixDiff && yDiff < m_options.minPixDiff )
+            {
+                center = m_facePos;
+            }
+            else
+            {
+                //lastPoint = m_facePos;
+                m_facePos = center;
+            }
+        }
+    }
+}
+
+void FaceGame::adjustBoundaries()
+{
+    for( int i = 0; i < m_vFaceDetResults.size(); ++i )
+    {
+        cv::Rect* curr = &(m_vFaceDetResults[ i ].face);
+        if( curr->x + curr->width > m_sxImg )
+        {
+            curr->width -= abs( curr->x + curr->width - m_sxImg );
+        }
+        if( curr->x < 0 )
+        {
+            curr->width -= abs( curr->x );
+            curr->x = 0;
+        }
+        if( curr->y + curr->height > m_syImg )
+        {
+            curr->height -= abs( curr->y + curr->height - m_syImg );
+        }
+        if( curr->y < 0 )
+        {
+            curr->height -= abs( curr->y );
+            curr->y = 0;
+        }
+    }
+}
+
+void FaceGame::showDebugInfos()
+{
+    int fontFace = cv::FONT_HERSHEY_PLAIN;
+    double fontScale = 0.7;
+    int fontThickness = 1;
+
+    const int x = 10;
+    int y = 20;
+    const int yDiff = 15;
+
+    char text[ 100 ];
+
+    sprintf_s( text, "minPxDiff: %d", m_options.minPixDiff );
+    cv::putText( m_img, text, cv::Point( x, y ), fontFace, fontScale, GREEN, fontThickness );
+
+    sprintf_s( text, "maxPxDiff: %d", m_options.maxPixDiff ); y+= yDiff;
+    cv::putText( m_img, text, cv::Point( x, y ), fontFace, fontScale, GREEN, fontThickness );
+}
+
+//void FaceGame::drawWithNose()
+//{
+//    if( !m_bPayerFaceSet )
+//    {
+//        return;
+//    }
+//
+//    cv::circle( m_testDrawImg, m_facePos, 2, RED, -1 );
+//
+//    if( lastPoint != m_facePos && lastPoint != cv::Point( 0, 0 ) )
+//    {
+//        cv::line( m_testDrawImg, lastPoint, m_facePos, RED, 2 );
+//    }
+//
+//    cv::imshow( "JULIA MALT!!!!!", m_testDrawImg );
+//    
+//}
+
+void FaceGame::keyHandling()
+{
+    int key = cv::waitKey( 30 );
+
+    if( 27 == key )     // esc -> end game
+    {
+        m_bEndGame = true;
+    }
+    else if( 13 == key )        // enter -> save currPos of face
+    {
+        if( m_vFaceDetResults.size() == 1 )
+        {
+            int x = m_vFaceDetResults[ 0 ].face.x + m_vFaceDetResults[ 0 ].face.width / 2;
+            int y = m_vFaceDetResults[ 0 ].face.y + m_vFaceDetResults[ 0 ].face.height / 2;
+            m_facePos = cv::Point( x, y );
+            printf( "\nFace coordinates successfully saved at %d, %d.\n", x, y );
+            m_bPayerFaceSet = true;
+        }
+        else
+        {
+            printf( "\nNo face or too many faces detected!\n" );
+            m_bPayerFaceSet = false;
+        }
+    }
+    else if( 'e' == key )
+    {
+        m_options.showEyes = !m_options.showEyes;
+    }
+    else if( 'f' == key )
+    {
+        m_options.showFace = !m_options.showFace;
+    }
+    else if( 'w' == key )
+    {
+        m_options.showFaceWnd = !m_options.showFaceWnd;
+    }
+    else if( 'd' == key )
+    {
+        m_options.showDebugInfos = !m_options.showDebugInfos;
+    }
+    else if( 'o' == key )
+    {
+        m_options.showInfoWnd = !m_options.showInfoWnd;
+    }
+    else if( '+' == key )
+    {
+        m_options.minPixDiff++;
+        m_options.minPixDiff = MIN( 20, m_options.minPixDiff );
+    }
+    else if( '-' == key )
+    {
+        m_options.minPixDiff--;
+        m_options.minPixDiff = MAX( 0, m_options.minPixDiff );
+    }
+    else if( '*' == key )
+    {
+        m_options.maxPixDiff += 10;
+        m_options.maxPixDiff = MIN( 300, m_options.maxPixDiff );
+    }
+    else if( '_' == key )
+    {
+        m_options.maxPixDiff -= 10;
+        m_options.maxPixDiff = MAX( 0, m_options.maxPixDiff );
+    }
+    /*else if( ' ' == key )
+    {
+        m_testDrawImg.setTo( 0 );
+    }*/
+
 }

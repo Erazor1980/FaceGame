@@ -1,5 +1,6 @@
 #pragma once
 #include "defines.h"
+#include "Enemy.h"
 
 struct CascadeParams
 {
@@ -12,9 +13,14 @@ struct CascadeParams
 
 struct Options
 {
+    bool showInfoWnd = true;
     bool showFace = true;
     bool showEyes = false;    
     bool showFaceWnd = false;
+    bool showDebugInfos = false;
+
+    int maxPixDiff = 150;            // maximal number of pixel (in x and y direction) between 2 frames from player center
+    int minPixDiff = 7;             // minimal movement of face center to change its position
 };
 
 struct FaceDetectionResults
@@ -40,23 +46,39 @@ private:
     void display();
     void detectFace();
     void processResults();
+    void adjustBoundaries();    // after detectFace or processResults some Rects can partially lie outside the image
+
+
+    void showDebugInfos();
 
     // captured image widht and height
     int m_sxImg;
     int m_syImg;
 
-    // current coordinates of the detected face
-    int m_faceX;
-    int m_faceY;
+    // current coordinates of the detected face (center)
+    cv::Point               m_facePos = cv::Point( 0, 0 );
 
-    bool m_bEndGame = false;
-    bool m_bInitialized = false;
+    bool                    m_bEndGame = false;
+    bool                    m_bInitialized = false;
 
-    Options m_options;
+    bool                    m_bPayerFaceSet = false;
+
+    Options                 m_options;
+
+    //TODO test! später weg!
+    //cv::Mat                 m_testDrawImg;
+    //cv::Point lastPoint;
+    //void drawWithNose();
+
+    // enemies
+    std::vector< Enemy >    m_vEnemies;
 
     // openCV params
     cv::Mat                 m_img;
-    std::string             m_wndName = "Face Game";
+    cv::Mat                 m_gameImg;
+
+    std::string             m_wndName = "Infos";
+    std::string             m_wndGameName = "F A C E    G A M E";
     cv::VideoCapture        m_videoCap;
 
     cv::CascadeClassifier   m_faceCascade;
