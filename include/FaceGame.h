@@ -25,7 +25,7 @@ struct Options
     int minPixDiff = 7;         // minimal movement of face center to change its position
 
     // game options
-    int sizePlayer = 20;        // size of player image in game window (radius and width/2 respectively)
+    int sizePlayer = 40;        // size of player image in game window (radius*2 and width/height respectively)
 };
 
 struct FaceDetectionResults
@@ -74,8 +74,9 @@ private:
     std::vector< Enemy >    m_vEnemies;
 
     // openCV params
-    cv::Mat                 m_img;
-    cv::Mat                 m_gameImg;
+    cv::Mat                 m_img;          /* camera live image with additional infos */
+    cv::Mat                 m_gameImg;      /* game image */
+    cv::Mat                 m_playerImg;    /* player image */
 
     std::string             m_wndName = "Infos";
     std::string             m_wndGameName = "F A C E    G A M E";

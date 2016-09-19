@@ -4,8 +4,8 @@
 
 // global params
 const int g_camID = 0;
-//std::string g_cascadeFace = "haarcascade_frontalface_alt.xml";
-std::string g_cascadeFace = "haarcascade_frontalface_default.xml";
+std::string g_cascadeFace = "haarcascade_frontalface_alt.xml";
+//std::string g_cascadeFace = "haarcascade_frontalface_default.xml";
 
 
 FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
@@ -74,6 +74,10 @@ FaceGame::FaceGame( const std::string pathToOpenCV_haarcascades )
         // create game image
         m_gameImg.create( m_img.size(), CV_8UC3 );
         m_gameImg.setTo( 0 );
+
+        // create player image
+        m_playerImg.create( m_options.sizePlayer, m_options.sizePlayer, CV_8UC3 );
+        m_playerImg.setTo( 0 );
 
         // add enemies
         createEnemies();
@@ -250,10 +254,11 @@ void FaceGame::display()
         if( m_bPayerFaceSet )
         {
             //TODO maybe copy the face from the player, or what ever... this is not nice yet
-            cv::Rect player( m_facePos - cv::Point( m_options.sizePlayer, m_options.sizePlayer ),
-                             m_facePos + cv::Point( m_options.sizePlayer, m_options.sizePlayer ) );
+            cv::Rect playerBB( m_facePos - cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ),
+                               m_facePos + cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ) );
 
-            cv::rectangle( m_gameImg, player, BLUE, -1 );
+            m_playerImg.copyTo( m_gameImg( playerBB ) );
+            //cv::rectangle( m_gameImg, player, BLUE, -1 );
             //cv::circle( m_gameImg, m_facePos, m_options.sizePlayer, BLUE, -1 );
         }
     }
@@ -380,11 +385,12 @@ void FaceGame::processResults()
             // Check to see if the user moved enough to update position
             if( xDiff < m_options.minPixDiff && yDiff < m_options.minPixDiff )
             {
-                center = m_facePos;
+                // do not adjust position due to too less movement
             }
             else
             {
                 m_facePos = center;
+                cv::resize( m_img( currBB ), m_playerImg, m_playerImg.size() );
             }
         }
     }
@@ -460,9 +466,12 @@ void FaceGame::keyHandling()
     {
         if( m_vFaceDetResults.size() == 1 )
         {
-            int x = m_vFaceDetResults[ 0 ].face.x + m_vFaceDetResults[ 0 ].face.width / 2;
-            int y = m_vFaceDetResults[ 0 ].face.y + m_vFaceDetResults[ 0 ].face.height / 2;
+            cv::Rect curr = m_vFaceDetResults[ 0 ].face;
+            int x = curr.x + curr.width / 2;
+            int y = curr.y + curr.height / 2;
             m_facePos = cv::Point( x, y );
+            cv::resize( m_img( cv::Rect( curr.x, curr.y, curr.width, curr.height ) ), m_playerImg, m_playerImg.size() );
+            
             printf( "\nFace coordinates successfully saved at %d, %d.\n", x, y );
             m_bPayerFaceSet = true;
         }
@@ -516,5 +525,4 @@ void FaceGame::keyHandling()
     {
         createEnemies();
     }
-
 }
