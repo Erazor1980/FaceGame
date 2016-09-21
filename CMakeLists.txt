@@ -14,4 +14,4 @@ link_directories( ${CMAKE_BINARY_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 add_executable( FaceGame ${NAME_SRC} ${NAME_HEADERS} )
 
-target_link_libraries( FaceGame ${OpenCV_LIBS} )
+target_link_libraries( FaceGame ${OpenCV_LIBS} winmm.lib )

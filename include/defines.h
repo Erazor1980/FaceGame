@@ -8,8 +8,8 @@
 #include <ctime>
 
 // for playing sounds
-//#include <windows.h>
-//#include <mmsystem.h>
+#include <windows.h>
+#include <mmsystem.h>
 
 
 #define BLUE	cv::Scalar( 255, 0, 0 )

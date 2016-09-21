@@ -59,12 +59,12 @@ public:
         bb.y = newCenter.y - img.rows / 2;
     }
 
-    //TODO hier weitermachen! bis jetzt nur ganz einfach
-    void update( bool aua )
+    // returns true, if player is dead
+    bool update( bool aua )
     {
         if( aua )
         {
-            life -= maxLife / 5;
+            life -= maxLife / 4;
             life = MAX( 0, life );
         }
         else
@@ -73,6 +73,11 @@ public:
             life = MIN( life, maxLife );
         }
         drawLifeBar();
+
+        if( life == 0 )
+            return true;
+        else
+            return false;
     }
 
     cv::Rect getBB() const
@@ -82,6 +87,10 @@ public:
     cv::Mat getImg() const
     {
         return img;
+    }
+    void reset()
+    {
+        life = maxLife;
     }
 private:
     void drawLifeBar()
@@ -111,12 +120,15 @@ public:
         return m_bEndGame;
     }
 private:
+    void resetGame();
     void keyHandling();
     void display();
     void detectFace();
     void processResults();
     void adjustBoundaries();    // after detectFace or processResults some Rects can partially lie outside the image
     void createEnemies();
+    void gameOverScreen();
+    void victoryScreen();
 
     void showDebugInfos();
 
@@ -130,8 +142,9 @@ private:
     // player info
     PlayerInfo              m_playerInfo;
 
-    bool                    m_bEndGame = false;
+    bool                    m_bEndGame = false;         // finish game bool
     bool                    m_bInitialized = false;
+    bool                    m_bGameOver = false;        // game over bool
 
     bool                    m_bPayerFaceSet = false;
 
@@ -139,6 +152,8 @@ private:
 
     // enemies
     std::vector< Enemy >    m_vEnemies;
+    int                     m_badEnemiesCounter = 0;
+    int                     m_goodEnemiesCounter = 0;
 
     // openCV params
     cv::Mat                 m_img;          /* camera live image with additional infos */

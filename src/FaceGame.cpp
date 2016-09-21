@@ -123,10 +123,22 @@ void FaceGame::update()
                 // collision test with player bb
                 if( m_bPayerFaceSet )
                 {
-                    if( it->collisionTest( m_playerInfo.getBB() ) )
+                    bool isBad = false;
+                    if( it->collisionTest( m_playerInfo.getBB(), isBad ) )
                     {
                         it = m_vEnemies.erase( it );
-                        m_playerInfo.update( true );
+                        if( m_playerInfo.update( isBad ) )
+                        {
+                            m_bGameOver = true;
+                        }
+                        if( isBad )
+                        {
+                            m_badEnemiesCounter--;
+                        }
+                        else
+                        {
+                            m_goodEnemiesCounter--;
+                        }
                     }
                     else
                         it++;
@@ -252,17 +264,23 @@ void FaceGame::display()
 
         if( m_bPayerFaceSet )
         {
-            //TODO maybe copy the face from the player, or what ever... this is not nice yet
-            //cv::Rect playerBB( m_facePos - cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ),
-            //                   m_facePos + cv::Point( m_options.sizePlayer / 2, m_options.sizePlayer / 2 ) );
-
             m_playerInfo.getImg().copyTo( m_gameImg( m_playerInfo.getBB() ) );
-            //cv::rectangle( m_gameImg, player, BLUE, -1 );
-            //cv::circle( m_gameImg, m_facePos, m_options.sizePlayer, BLUE, -1 );
         }
     }
     
+    // GAME OVER
+    if( m_bGameOver )
+    {
+        PlaySound( "D:\\Projects\\_sounds_\\gameover2.wav", NULL, SND_ASYNC );
+        gameOverScreen();
+    }
 
+    // VICTORY
+    if( m_goodEnemiesCounter == 0 )
+    {
+        PlaySound( "D:\\Projects\\_sounds_\\victory.wav", NULL, SND_ASYNC );
+        victoryScreen();
+    }
 
     cv::imshow( m_wndGameName, m_gameImg );
 }
@@ -426,13 +444,78 @@ void FaceGame::createEnemies()
 {
     m_vEnemies.clear();
 
+    // good enemies
     cv::Mat enemy = cv::imread( "D:/Projects/_images_/bvb.png", 1 );
-    enemy.setTo( 255 );
-
-    for( int i = 0; i < NUMBER_ENEMIES; ++i )
+     for( int i = 0; i < 5; ++i )
     {
-        Enemy newEnemy( enemy, &m_gameImg, ENEMY_SIZE );
+        Enemy newEnemy( enemy, &m_gameImg, false, ENEMY_SIZE );
         m_vEnemies.push_back( newEnemy );
+        m_goodEnemiesCounter++;
+    }
+
+    // bad enemies
+    enemy = cv::imread( "D:/Projects/_images_/evil.png", 1 );
+    for( int i = 0; i < 5; ++i )
+    {
+        Enemy newEnemy( enemy, &m_gameImg, true, ENEMY_SIZE );
+        m_vEnemies.push_back( newEnemy );
+        m_badEnemiesCounter++;
+    }
+}
+
+void FaceGame::gameOverScreen()
+{
+    int fontFace = cv::FONT_HERSHEY_PLAIN;
+    int fontScale = 4;
+    int fontThickness = 3;
+
+    const int x = 120;
+    const int y = 170;
+
+    cv::putText( m_gameImg, "GAME OVER", cv::Point( x, y ), fontFace, fontScale, GREEN, fontThickness );
+    cv::putText( m_gameImg, "Close game -> press ESC", cv::Point( x, y + 40 ), fontFace, 1.5, RED, 2 );
+    cv::putText( m_gameImg, "New game   -> press Enter", cv::Point( x, y + 70 ), fontFace, 1.5, RED, 2 );
+    /*cv::putText( m_gameImg, "Start menu -> press 's'", cv::Point( x, y + 100 ), fontFace, 1.5, RED, 2 );
+    cv::putText( m_gameImg, "High Score -> press 'h'", cv::Point( x, y + 130 ), fontFace, 1.5, RED, 2 );*/
+
+    cv::imshow( m_wndGameName, m_gameImg );
+
+    int key = cv::waitKey( 0 );
+    if( 27 == key )
+    {
+        m_bEndGame = true;
+    }
+    else if( 13 == key )
+    {
+        resetGame();
+    }
+}
+
+void FaceGame::victoryScreen()
+{
+    int fontFace = cv::FONT_HERSHEY_PLAIN;
+    int fontScale = 4;
+    int fontThickness = 3;
+
+    const int x = 120;
+    const int y = 170;
+
+    cv::putText( m_gameImg, "VICTORY ! ! ! !", cv::Point( x, y ), fontFace, fontScale, BLUE, fontThickness );
+    cv::putText( m_gameImg, "Close game -> press ESC", cv::Point( x, y + 40 ), fontFace, 1.5, RED, 2 );
+    cv::putText( m_gameImg, "New game   -> press Enter", cv::Point( x, y + 70 ), fontFace, 1.5, RED, 2 );
+    /*cv::putText( m_gameImg, "Start menu -> press 's'", cv::Point( x, y + 100 ), fontFace, 1.5, RED, 2 );
+    cv::putText( m_gameImg, "High Score -> press 'h'", cv::Point( x, y + 130 ), fontFace, 1.5, RED, 2 );*/
+
+    cv::imshow( m_wndGameName, m_gameImg );
+
+    int key = cv::waitKey( 0 );
+    if( 27 == key )
+    {
+        m_bEndGame = true;
+    }
+    else if( 13 == key )
+    {
+        resetGame();
     }
 }
 
@@ -453,6 +536,14 @@ void FaceGame::showDebugInfos()
 
     sprintf_s( text, "maxPxDiff: %d", m_options.maxPixDiff ); y+= yDiff;
     cv::putText( m_img, text, cv::Point( x, y ), fontFace, fontScale, GREEN, fontThickness );
+}
+
+void FaceGame::resetGame()
+{
+    createEnemies();
+    m_playerInfo.reset();
+    m_bGameOver     = false;
+    m_bPayerFaceSet = false;
 }
 
 void FaceGame::keyHandling()

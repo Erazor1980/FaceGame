@@ -1,8 +1,9 @@
 #include "Enemy.h"
 
-Enemy::Enemy( const cv::Mat img, cv::Mat* const gameImg, const int size )
+Enemy::Enemy( const cv::Mat img, cv::Mat* const gameImg, bool bad, const int size )
     :
-    mp_gameImg( gameImg )
+    mp_gameImg( gameImg ),
+    m_bIsBad( bad )
 {
     cv::resize( img, m_img, cv::Size( size, size ) );
 
@@ -44,8 +45,10 @@ void Enemy::display()
     m_img.copyTo( ( *mp_gameImg )( cv::Rect( m_pos, cv::Point( m_pos.x + m_img.cols, m_pos.y + m_img.rows ) ) ) );
 }
 
-bool Enemy::collisionTest( const cv::Rect otherBB )
+bool Enemy::collisionTest( const cv::Rect otherBB, bool& isBad )
 {
+    isBad = m_bIsBad;
+
     const int right0    = m_pos.x + m_img.cols;
     const int bottom0   = m_pos.y + m_img.rows;
     const int right1    = otherBB.x + otherBB.width;
