@@ -271,14 +271,14 @@ void FaceGame::display()
     // GAME OVER
     if( m_bGameOver )
     {
-        PlaySound( "D:\\Projects\\_sounds_\\gameover2.wav", NULL, SND_ASYNC );
+        PlaySound( std::string( PATH_TO_SOUNDS + "gameover2.wav" ).c_str(), NULL, SND_ASYNC );
         gameOverScreen();
     }
 
     // VICTORY
     if( m_goodEnemiesCounter == 0 )
     {
-        PlaySound( "D:\\Projects\\_sounds_\\victory.wav", NULL, SND_ASYNC );
+        PlaySound( std::string( PATH_TO_SOUNDS + "victory.wav" ).c_str(), NULL, SND_ASYNC );
         victoryScreen();
     }
 
@@ -443,10 +443,12 @@ void FaceGame::adjustBoundaries()
 void FaceGame::createEnemies()
 {
     m_vEnemies.clear();
+    m_goodEnemiesCounter = 0;
+    m_badEnemiesCounter = 0;
 
     // good enemies
-    cv::Mat enemy = cv::imread( "D:/Projects/_images_/bvb.png", 1 );
-     for( int i = 0; i < 5; ++i )
+    cv::Mat enemy = cv::imread( PATH_TO_IMAGES + "bvb.png", 1 );
+     for( int i = 0; i < 10; ++i )
     {
         Enemy newEnemy( enemy, &m_gameImg, false, ENEMY_SIZE );
         m_vEnemies.push_back( newEnemy );
@@ -454,8 +456,8 @@ void FaceGame::createEnemies()
     }
 
     // bad enemies
-    enemy = cv::imread( "D:/Projects/_images_/evil.png", 1 );
-    for( int i = 0; i < 5; ++i )
+    enemy = cv::imread( PATH_TO_IMAGES + "evil.png", 1 );
+    for( int i = 0; i < 15; ++i )
     {
         Enemy newEnemy( enemy, &m_gameImg, true, ENEMY_SIZE );
         m_vEnemies.push_back( newEnemy );
